@@ -1,0 +1,35 @@
+.inventory {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  width: 200px;
+  padding: 15px;
+  background: rgba(25, 25, 25, 0.95);
+  color: white;
+  border-radius: 10px;
+  z-index: 10;
+  font-family: Arial, sans-serif;
+}
+
+.inventory h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.inventory button {
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.inventory .hint {
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.hidden {
+  display: none;
+}
