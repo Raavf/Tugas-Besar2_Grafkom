@@ -177,7 +177,6 @@ gltfLoader.load('/assets/models/tv.glb', (gltf) => {
 });
 
 
-
 // ANIMATE
 function animate() {
   requestAnimationFrame(animate);
