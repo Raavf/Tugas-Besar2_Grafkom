@@ -50,13 +50,12 @@ scene.add(light);
 
 // LANTAI
 floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-floorTexture.repeat.set(3, 3);
-
+floorTexture.repeat.set(3 , 3);
 floorTexture.center.set(0.5, 0.5);
 floorTexture.rotation = Math.PI / 2;
 
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
+  new THREE.PlaneGeometry(30, 30),
   new THREE.MeshStandardMaterial({
     map: floorTexture,
     color: 0xc9a46b,
@@ -79,29 +78,29 @@ const wallMaterial = new THREE.MeshStandardMaterial({
 
 // DINDING BELAKANG
 const backWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 5),
+  new THREE.PlaneGeometry(30, 8),
   wallMaterial
 );
 
-backWall.position.set(0, 2, -10);
+backWall.position.set(0, 4, -15);
 scene.add(backWall);
 
 // DINDING KIRI
 const leftWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 5),
+  new THREE.PlaneGeometry(30, 8),
   wallMaterial
 );
 leftWall.rotation.y = Math.PI / 2;
-leftWall.position.set(-10, 2, 0);
+leftWall.position.set(-15, 4, 0);
 scene.add(leftWall);
 
 // DINDING KANAN
 const rightWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 5),
+  new THREE.PlaneGeometry(30, 8),
   wallMaterial
 );
 rightWall.rotation.y = -Math.PI / 2;
-rightWall.position.set(10, 2, 0);
+rightWall.position.set(15, 4, 0);
 scene.add(rightWall);
 
 // SOFA
@@ -176,6 +175,8 @@ gltfLoader.load('/assets/models/tv.glb', (gltf) => {
   scene.add(tvUnit);
   draggableObjects.push(tvUnit);
 });
+
+
 
 // ANIMATE
 function animate() {
