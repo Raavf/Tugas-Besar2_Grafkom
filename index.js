@@ -4,6 +4,8 @@ import * as THREE from 'three';
 // IMPORT ORBIT CONTROLS
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+const ROTATE_SNAP = THREE.MathUtils.degToRad(15);
+
 const textureLoader = new THREE.TextureLoader();
 const floorTexture = textureLoader.load('/assets/texture/floor.jpg');
 
@@ -40,6 +42,24 @@ document.body.appendChild(renderer.domElement);
 // CONTROLS
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+const moveSpeed = 0.15;
+
+const keyState = {
+  w: false,
+  a: false,
+  s: false,
+  d: false
+};
+window.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  if (key in keyState) keyState[key] = true;
+});
+
+window.addEventListener('keyup', (e) => {
+  const key = e.key.toLowerCase();
+  if (key in keyState) keyState[key] = false;
+});
+
 
 // CAHAYA
 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
@@ -50,12 +70,13 @@ scene.add(light);
 
 // LANTAI
 floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-floorTexture.repeat.set(3 , 3);
+floorTexture.repeat.set(3, 3);
+
 floorTexture.center.set(0.5, 0.5);
 floorTexture.rotation = Math.PI / 2;
 
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(30, 30),
+  new THREE.PlaneGeometry(20, 20),
   new THREE.MeshStandardMaterial({
     map: floorTexture,
     color: 0xc9a46b,
@@ -78,29 +99,29 @@ const wallMaterial = new THREE.MeshStandardMaterial({
 
 // DINDING BELAKANG
 const backWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(30, 8),
+  new THREE.PlaneGeometry(20, 5),
   wallMaterial
 );
 
-backWall.position.set(0, 4, -15);
+backWall.position.set(0, 2, -10);
 scene.add(backWall);
 
 // DINDING KIRI
 const leftWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(30, 8),
+  new THREE.PlaneGeometry(20, 5),
   wallMaterial
 );
 leftWall.rotation.y = Math.PI / 2;
-leftWall.position.set(-15, 4, 0);
+leftWall.position.set(-10, 2, 0);
 scene.add(leftWall);
 
 // DINDING KANAN
 const rightWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(30, 8),
+  new THREE.PlaneGeometry(20, 5),
   wallMaterial
 );
 rightWall.rotation.y = -Math.PI / 2;
-rightWall.position.set(15, 4, 0);
+rightWall.position.set(10, 2, 0);
 scene.add(rightWall);
 
 // SOFA
@@ -176,10 +197,28 @@ gltfLoader.load('/assets/models/tv.glb', (gltf) => {
   draggableObjects.push(tvUnit);
 });
 
-
 // ANIMATE
 function animate() {
   requestAnimationFrame(animate);
+
+  const direction = new THREE.Vector3();
+  camera.getWorldDirection(direction);
+  direction.y = 0;
+  direction.normalize();
+
+  const right = new THREE.Vector3();
+  right.crossVectors(direction, camera.up).normalize();
+
+  const move = new THREE.Vector3();
+
+  if (keyState.w) move.add(direction.clone().multiplyScalar(moveSpeed));
+  if (keyState.s) move.add(direction.clone().multiplyScalar(-moveSpeed));
+  if (keyState.a) move.add(right.clone().multiplyScalar(-moveSpeed));
+  if (keyState.d) move.add(right.clone().multiplyScalar(moveSpeed));
+
+  camera.position.add(move);
+  controls.target.add(move);
+
   controls.update();
   renderer.render(scene, camera);
 }
@@ -217,15 +256,34 @@ const items = {
     path: '/assets/models/tv.glb',
     scale: 1,
     y: 0
+  },
+  karpet: {
+    path: '/assets/models/karpet.glb',
+    scale: 1,
+    y: 0
   }
 };
 
 // UKURAN ASLI OBJEK
 const ITEM_SIZE = {
-  sofa: 7,
-  meja: 4,
-  tv: 5,
+  sofa: { 
+    type: 'width', 
+    value: 7 
+  },
+  meja: { 
+    type: 'width', 
+    value: 4 
+  },
+  tv:   { 
+    type: 'width', 
+    value: 5 
+  },
+  karpet: { 
+    type: 'scale', 
+    value: 0.040 
+  }
 };
+
 
 
 document.querySelectorAll('#inventory button').forEach(btn => {
@@ -241,14 +299,28 @@ function spawnItem(name) {
   gltfLoader.load(item.path, (gltf) => {
     const obj = gltf.scene;
 
+    // posisi spawn di depan kamera
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
-
     obj.position.copy(camera.position).add(dir.multiplyScalar(3));
-    scaleToTargetWidth(obj, ITEM_SIZE[name]);
 
-    snapToFloor(obj);
+    // === ATUR UKURAN BERDASARKAN JENIS ITEM ===
+    const sizeConfig = ITEM_SIZE[name];
 
+    if (sizeConfig.type === 'width') {
+      // sofa, meja, tv
+      scaleToTargetWidth(obj, sizeConfig.value);
+      snapToFloor(obj);
+    }
+
+    if (sizeConfig.type === 'scale') {
+      // karpet
+      obj.scale.setScalar(sizeConfig.value);
+      obj.rotation.y = Math.PI / 2;
+      obj.position.y = 0.02; // sedikit di atas lantai
+    }
+
+    // untuk drag mesh anak
     obj.traverse(child => {
       if (child.isMesh) {
         child.userData.parent = obj;
@@ -316,6 +388,22 @@ window.addEventListener('mouseup', () => {
   isDragging = false;
   selectedObject = null;
   controls.enabled = true;
+});
+
+// ROTATE
+window.addEventListener('keydown', (e) => {
+  if (!selectedObject) return;
+
+  // jangan rotate kalau inventory terbuka
+  if (inventory && !inventory.classList.contains('hidden')) return;
+
+  if (e.key.toLowerCase() === 'q') {
+    selectedObject.rotation.y += ROTATE_SNAP;
+  }
+
+  if (e.key.toLowerCase() === 'e') {
+    selectedObject.rotation.y -= ROTATE_SNAP;
+  }
 });
 
 
