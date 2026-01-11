@@ -357,6 +357,7 @@ const ITEM_SIZE = {
   }
 };
 
+// BUTTON INVENTORY
 document.querySelectorAll('#inventory button').forEach(btn => {
   btn.addEventListener('click', () => {
     spawnItem(btn.dataset.item);
