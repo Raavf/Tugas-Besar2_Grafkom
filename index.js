@@ -33,7 +33,7 @@ const TEXTURE_LIBRARY = {
   tembok: [
     '/assets/texture/dinding_bata.jpg',
     '/assets/texture/dinding_keramik.jpg',
-    '/assets/texture/dinding_semen.jpg'
+    '/assets/texture/dinding_semen.jpg',
   ]
 };
 
@@ -158,7 +158,7 @@ backWall.userData.type = 'tembok';
 backWall.userData.canChangeTexture = true;
 scene.add(backWall);
 scene.add(backWall);
-draggableObjects.push(backWall); // Masukkan ke array agar bisa di-klik
+draggableObjects.push(backWall); 
 
 // DINDING KIRI
 const leftWall = new THREE.Mesh(
@@ -171,7 +171,7 @@ leftWall.userData.type = 'tembok';
 leftWall.userData.canChangeTexture = true;
 scene.add(leftWall);
 scene.add(leftWall);
-draggableObjects.push(leftWall); // Masukkan ke array agar bisa di-klik
+draggableObjects.push(leftWall); 
 
 // DINDING KANAN
 const rightWall = new THREE.Mesh(
@@ -184,7 +184,7 @@ rightWall.userData.type = 'tembok';
 rightWall.userData.canChangeTexture = true;
 scene.add(rightWall);
 scene.add(rightWall);
-draggableObjects.push(rightWall); // Masukkan ke array agar bisa di-klik
+draggableObjects.push(rightWall); 
 
 // SOFA
 gltfLoader.load('/assets/models/sofa.glb', (gltf) => {
@@ -407,7 +407,6 @@ function spawnItem(name) {
 // MOUSE DOWN
 window.addEventListener('mousedown', (e) => {
   if (e.target.closest('#textureMenu')) return;
-
   if (inventory && !inventory.classList.contains('hidden')) return;
 
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -417,13 +416,20 @@ window.addEventListener('mousedown', (e) => {
   const intersects = raycaster.intersectObjects(draggableObjects, true);
 
   if (intersects.length > 0) {
-    selectedObject = getRootObject(intersects[0].object);
-    if (obj.userData.type === 'tembok') return;
+    const root = getRootObject(intersects[0].object);
+    
+    // JIKA YANG DIKLIK TEMBOK, JANGAN AKTIFKAN DRAG
+    if (root.userData.type === 'tembok') {
+      selectedObject = null;
+      return;
+    }
+
+    // JIKA BUKAN TEMBOK, BOLEH DRAG
+    selectedObject = root;
     isDragging = true;
     controls.enabled = false;
     highlight(selectedObject, true);
     lastMouseY = e.clientY;
-
   }
 });
 
@@ -557,7 +563,7 @@ function gantiTexture(path) {
 
   if (selectedTexturableObject.userData.type === 'tembok') {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4, 1); // Tekstur akan berulang 4 kali secara horizontal
+    tex.repeat.set(4, 1);
   }
 
   console.log('APPLY TEXTURE:', path);
