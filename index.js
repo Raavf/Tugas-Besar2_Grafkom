@@ -5,6 +5,8 @@ let selectedTexturableObject = null;
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { gsap } from "gsap";
+
 
 // TEXTURE LIBRARY 
 const TEXTURE_LIBRARY = {
@@ -27,6 +29,11 @@ const TEXTURE_LIBRARY = {
     '/assets/texture/karpet_merah.jpg',
     '/assets/texture/karpet_biru.jpg',
     '/assets/texture/karpet_hijau.jpg'
+  ],
+  tembok: [
+    '/assets/texture/dinding_bata.jpg',
+    '/assets/texture/dinding_keramik.jpg',
+    '/assets/texture/dinding_semen.jpg'
   ]
 };
 
@@ -55,6 +62,7 @@ camera.position.set(5, 5, 7);
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
+
 let selectedObject = null;
 let isDragging = false;
 let lastMouseY = 0;
@@ -69,6 +77,8 @@ document.body.appendChild(renderer.domElement);
 // CONTROLS
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+const initialCameraPosition = camera.position.clone();
+const initialControlsTarget = controls.target.clone();
 const moveSpeed = 0.15;
 
 const keyState = {
@@ -124,6 +134,19 @@ const wallMaterial = new THREE.MeshStandardMaterial({
   color: 0xb0b5c0
 });
 
+// DINDING DEPAN
+const frontWall = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 5), 
+  wallMaterial
+);
+frontWall.position.set(0, 2, 10); 
+frontWall.rotation.y = Math.PI;   
+frontWall.userData.type = 'tembok';
+frontWall.userData.canChangeTexture = true;
+scene.add(frontWall);
+draggableObjects.push(frontWall);
+
+
 // DINDING BELAKANG
 const backWall = new THREE.Mesh(
   new THREE.PlaneGeometry(20, 5),
@@ -131,7 +154,11 @@ const backWall = new THREE.Mesh(
 );
 
 backWall.position.set(0, 2, -10);
+backWall.userData.type = 'tembok';
+backWall.userData.canChangeTexture = true;
 scene.add(backWall);
+scene.add(backWall);
+draggableObjects.push(backWall); // Masukkan ke array agar bisa di-klik
 
 // DINDING KIRI
 const leftWall = new THREE.Mesh(
@@ -140,7 +167,11 @@ const leftWall = new THREE.Mesh(
 );
 leftWall.rotation.y = Math.PI / 2;
 leftWall.position.set(-10, 2, 0);
+leftWall.userData.type = 'tembok';
+leftWall.userData.canChangeTexture = true;
 scene.add(leftWall);
+scene.add(leftWall);
+draggableObjects.push(leftWall); // Masukkan ke array agar bisa di-klik
 
 // DINDING KANAN
 const rightWall = new THREE.Mesh(
@@ -149,7 +180,11 @@ const rightWall = new THREE.Mesh(
 );
 rightWall.rotation.y = -Math.PI / 2;
 rightWall.position.set(10, 2, 0);
+rightWall.userData.type = 'tembok';
+rightWall.userData.canChangeTexture = true;
 scene.add(rightWall);
+scene.add(rightWall);
+draggableObjects.push(rightWall); // Masukkan ke array agar bisa di-klik
 
 // SOFA
 gltfLoader.load('/assets/models/sofa.glb', (gltf) => {
@@ -270,6 +305,7 @@ window.addEventListener('resize', () => {
 // INVENTORY TOGGLE
 const inventory = document.getElementById('inventory');
 const textureMenu = document.getElementById('textureMenu');
+textureMenu.classList.add('hidden');
 
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'i') {
@@ -382,22 +418,12 @@ window.addEventListener('mousedown', (e) => {
 
   if (intersects.length > 0) {
     selectedObject = getRootObject(intersects[0].object);
+    if (obj.userData.type === 'tembok') return;
     isDragging = true;
     controls.enabled = false;
     highlight(selectedObject, true);
     lastMouseY = e.clientY;
 
-    if (selectedObject.userData?.canChangeTexture && selectedObject.userData?.type) {
-      selectedTexturableObject = selectedObject;
-      showTextureMenu(selectedObject.userData.type);
-    } else {
-      textureMenu.classList.add('hidden');
-      selectedTexturableObject = null;
-    }
-
-  } else {
-    textureMenu.classList.add('hidden');
-    selectedTexturableObject = null;
   }
 });
 
@@ -529,6 +555,11 @@ function gantiTexture(path) {
   tex.flipY = false;
   tex.colorSpace = THREE.SRGBColorSpace;
 
+  if (selectedTexturableObject.userData.type === 'tembok') {
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 1); // Tekstur akan berulang 4 kali secara horizontal
+  }
+
   console.log('APPLY TEXTURE:', path);
 
   selectedTexturableObject.traverse(child => {
@@ -555,7 +586,6 @@ function gantiTexture(path) {
 
 function showTextureMenu(type) {
   textureMenu.innerHTML = '';
-
   const textures = TEXTURE_LIBRARY[type];
   if (!textures) return;
 
@@ -568,7 +598,93 @@ function showTextureMenu(type) {
   });
 
   textureMenu.classList.remove('hidden');
+  textureMenu.style.display = 'flex'; 
 }
 
 window.gantiTexture = gantiTexture;
 
+//  ZOOM ITEM & SHOW TEXTURE MENU
+window.addEventListener('dblclick', (e) => {
+  if (inventory && !inventory.classList.contains('hidden')) return;
+
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(draggableObjects, true);
+
+  if (intersects.length > 0) {
+    const obj = getRootObject(intersects[0].object);
+    selectedTexturableObject = obj; // Simpan referensi objek untuk gantiTexture
+
+    // LOGIKA ZOOM (Kunci ke objek)
+    const box = new THREE.Box3().setFromObject(obj);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxSize = Math.max(size.x, size.y, size.z);
+    const distance = maxSize * 2;
+
+    const dir = new THREE.Vector3().subVectors(camera.position, center).normalize();
+    const targetPos = center.clone().add(dir.multiplyScalar(distance));
+
+    gsap.to(camera.position, {
+      x: targetPos.x,
+      y: targetPos.y + 0.5,
+      z: targetPos.z,
+      duration: 0.8,
+      onUpdate: () => controls.update()
+    });
+
+    gsap.to(controls.target, {
+      x: center.x,
+      y: center.y,
+      z: center.z,
+      duration: 0.8,
+      onUpdate: () => controls.update()
+    });
+
+    // SETEL KONTROL: Bisa Rotate, tapi tidak bisa Pan/Zoom
+    controls.enabled = true;
+    controls.enablePan = false;
+    controls.enableZoom = true;
+
+    // TAMPILKAN MENU
+    if (obj.userData?.canChangeTexture && obj.userData?.type) {
+      showTextureMenu(obj.userData.type);
+    }
+  }
+});
+
+
+// ESCAPE STELAH DOUBLECLICK
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    // 1. Sembunyikan Menu & Reset Referensi
+    selectedTexturableObject = null;
+    textureMenu.classList.add('hidden');
+    // Tambahan: Pastikan display none lewat style jika class CSS kurang kuat
+    textureMenu.style.display = 'none'; 
+
+    // 2. Kembalikan Fungsi Kamera ke Normal
+    controls.enabled = true;
+    controls.enablePan = true;
+    controls.enableZoom = true;
+
+    // 3. Animasi Balik ke Posisi Awal
+    gsap.to(camera.position, {
+      x: initialCameraPosition.x,
+      y: initialCameraPosition.y,
+      z: initialCameraPosition.z,
+      duration: 0.8,
+      onUpdate: () => controls.update()
+    });
+
+    gsap.to(controls.target, {
+      x: initialControlsTarget.x,
+      y: initialControlsTarget.y,
+      z: initialControlsTarget.z,
+      duration: 0.8,
+      onUpdate: () => controls.update()
+    });
+  }
+});
