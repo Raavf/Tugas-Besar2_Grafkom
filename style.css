@@ -1,3 +1,10 @@
+canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
 .inventory {
   position: fixed;
   top: 50%;
@@ -32,4 +39,25 @@
 
 .hidden {
   display: none;
+}
+
+#textureMenu {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  z-index: 20;        
+  pointer-events: auto; 
+}
+
+.texture {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  background-size: cover;
+  background-position: center;
 }

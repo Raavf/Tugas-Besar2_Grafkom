@@ -1,19 +1,47 @@
-// IMPORT THREE
+// GLOBAL 
+let selectedTexturableObject = null;
+
+// IMPORT 
 import * as THREE from 'three';
-
-// IMPORT ORBIT CONTROLS
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+// TEXTURE LIBRARY 
+const TEXTURE_LIBRARY = {
+  sofa: [
+    '/assets/texture/sofa_putih.jpg',
+    '/assets/texture/sofa_coklat.jpg',
+    '/assets/texture/sofa_abu.jpg'
+  ],
+  meja: [
+    '/assets/texture/meja_kayu.jpg',
+    '/assets/texture/meja_putih.jpg',
+    '/assets/texture/meja_hitam.jpg'
+  ],
+  tv: [
+    '/assets/texture/tv_hitam.jpg',
+    '/assets/texture/tv_silver.jpg',
+    '/assets/texture/tv_putih.jpg'
+  ],
+  karpet: [
+    '/assets/texture/karpet_merah.jpg',
+    '/assets/texture/karpet_biru.jpg',
+    '/assets/texture/karpet_hijau.jpg'
+  ]
+};
+
+// CONST & LOADER 
 const ROTATE_SNAP = THREE.MathUtils.degToRad(15);
 
 const textureLoader = new THREE.TextureLoader();
 const floorTexture = textureLoader.load('/assets/texture/floor.jpg');
 
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const gltfLoader = new GLTFLoader();
 
 // SCENE
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xeeeeee);
+
 
 // CAMERA
 const camera = new THREE.PerspectiveCamera(
@@ -33,10 +61,9 @@ let lastMouseY = 0;
 
 const draggableObjects = [];
 
-
 // RENDERER
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight); 
 document.body.appendChild(renderer.domElement);
 
 // CONTROLS
@@ -125,18 +152,18 @@ rightWall.position.set(10, 2, 0);
 scene.add(rightWall);
 
 // SOFA
-const gltfLoader = new GLTFLoader();
-
 gltfLoader.load('/assets/models/sofa.glb', (gltf) => {
   const sofa = gltf.scene;
+
+  sofa.userData.type = 'sofa';
+  sofa.userData.canChangeTexture = true;
 
   const box = new THREE.Box3().setFromObject(sofa);
   const size = new THREE.Vector3();
   box.getSize(size);
 
   const targetWidth = 7;
-  const scaleFactor = targetWidth / size.x;
-  sofa.scale.setScalar(scaleFactor);
+  sofa.scale.setScalar(targetWidth / size.x);
 
   sofa.position.set(0, 0, -8);
   sofa.rotation.y = 0;
@@ -148,6 +175,9 @@ gltfLoader.load('/assets/models/sofa.glb', (gltf) => {
 // MEJA DEPAN SOFA
 gltfLoader.load('/assets/models/meja.glb', (gltf) => {
   const meja = gltf.scene;
+
+  meja.userData.type = 'meja';
+  meja.userData.canChangeTexture = true;
 
   const box = new THREE.Box3().setFromObject(meja);
   const size = new THREE.Vector3();
@@ -169,6 +199,9 @@ gltfLoader.load('/assets/models/meja.glb', (gltf) => {
 gltfLoader.load('/assets/models/karpet.glb', (gltf) => {
   const karpet = gltf.scene;
 
+  karpet.userData.type = 'karpet';
+  karpet.userData.canChangeTexture = true;
+
   karpet.scale.setScalar(0.040);
   karpet.position.set(0.5, 0.02, 1);
 
@@ -181,6 +214,9 @@ gltfLoader.load('/assets/models/karpet.glb', (gltf) => {
 // MEJA + TV
 gltfLoader.load('/assets/models/tv.glb', (gltf) => {
   const tvUnit = gltf.scene;
+
+  tvUnit.userData.type = 'tv';
+  tvUnit.userData.canChangeTexture = true;
 
   const box = new THREE.Box3().setFromObject(tvUnit);
   const size = new THREE.Vector3();
@@ -233,6 +269,7 @@ window.addEventListener('resize', () => {
 
 // INVENTORY TOGGLE
 const inventory = document.getElementById('inventory');
+const textureMenu = document.getElementById('textureMenu');
 
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'i') {
@@ -284,8 +321,6 @@ const ITEM_SIZE = {
   }
 };
 
-
-
 document.querySelectorAll('#inventory button').forEach(btn => {
   btn.addEventListener('click', () => {
     spawnItem(btn.dataset.item);
@@ -298,32 +333,33 @@ function spawnItem(name) {
 
   gltfLoader.load(item.path, (gltf) => {
     const obj = gltf.scene;
+  
+  obj.userData.type = name;
+  obj.userData.canChangeTexture = true;
 
-    // posisi spawn di depan kamera
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
     obj.position.copy(camera.position).add(dir.multiplyScalar(3));
 
-    // === ATUR UKURAN BERDASARKAN JENIS ITEM ===
     const sizeConfig = ITEM_SIZE[name];
 
     if (sizeConfig.type === 'width') {
-      // sofa, meja, tv
       scaleToTargetWidth(obj, sizeConfig.value);
       snapToFloor(obj);
     }
 
     if (sizeConfig.type === 'scale') {
-      // karpet
       obj.scale.setScalar(sizeConfig.value);
       obj.rotation.y = Math.PI / 2;
-      obj.position.y = 0.02; // sedikit di atas lantai
+      obj.position.y = 0.02; 
     }
 
     // untuk drag mesh anak
     obj.traverse(child => {
       if (child.isMesh) {
         child.userData.parent = obj;
+        child.userData.canChangeTexture = true;
+        child.userData.type = obj.userData.type;
       }
     });
 
@@ -334,6 +370,8 @@ function spawnItem(name) {
 
 // MOUSE DOWN
 window.addEventListener('mousedown', (e) => {
+  if (e.target.closest('#textureMenu')) return;
+
   if (inventory && !inventory.classList.contains('hidden')) return;
 
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -348,6 +386,18 @@ window.addEventListener('mousedown', (e) => {
     controls.enabled = false;
     highlight(selectedObject, true);
     lastMouseY = e.clientY;
+
+    if (selectedObject.userData?.canChangeTexture && selectedObject.userData?.type) {
+      selectedTexturableObject = selectedObject;
+      showTextureMenu(selectedObject.userData.type);
+    } else {
+      textureMenu.classList.add('hidden');
+      selectedTexturableObject = null;
+    }
+
+  } else {
+    textureMenu.classList.add('hidden');
+    selectedTexturableObject = null;
   }
 });
 
@@ -386,7 +436,11 @@ window.addEventListener('mouseup', () => {
   if (selectedObject) highlight(selectedObject, false);
 
   isDragging = false;
-  selectedObject = null;
+
+  if (textureMenu.classList.contains('hidden')) {
+    selectedObject = null;
+  }
+
   controls.enabled = true;
 });
 
@@ -394,7 +448,6 @@ window.addEventListener('mouseup', () => {
 window.addEventListener('keydown', (e) => {
   if (!selectedObject) return;
 
-  // jangan rotate kalau inventory terbuka
   if (inventory && !inventory.classList.contains('hidden')) return;
 
   if (e.key.toLowerCase() === 'q') {
@@ -406,6 +459,14 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// DELETE ITEM
+window.addEventListener('keydown', (e) => {
+  if (!selectedObject) return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelectedObject();
+  }
+});
 
 // HIGHLIGHT
 function highlight(obj, state) {
@@ -422,7 +483,6 @@ function snapToFloor(object) {
   const minY = box.min.y;
   object.position.y -= minY;
 }
-
 
 // SCALE ITEM
 function scaleToTargetWidth(object, targetWidth) {
@@ -442,4 +502,73 @@ function getRootObject(object) {
   }
   return current;
 }
+
+// DELETE SELECTED OBJECT
+function deleteSelectedObject() {
+  scene.remove(selectedObject);
+
+  const index = draggableObjects.indexOf(selectedObject);
+  if (index !== -1) {
+    draggableObjects.splice(index, 1);
+  }
+
+  if (selectedObject === selectedTexturableObject) {
+    textureMenu.classList.add('hidden');
+    selectedTexturableObject = null;
+  }
+
+  selectedObject = null;
+  isDragging = false;
+  controls.enabled = true;
+}
+
+function gantiTexture(path) {
+  if (!selectedTexturableObject) return;
+
+  const tex = textureLoader.load(path);
+  tex.flipY = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+
+  console.log('APPLY TEXTURE:', path);
+
+  selectedTexturableObject.traverse(child => {
+    if (child.isMesh && child.material) {
+
+      const mats = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      mats.forEach(mat => {
+        mat.map = tex;
+        mat.color.set(0xffffff); 
+        mat.emissive?.set(0x000000);
+        mat.normalMap = null;
+        mat.roughnessMap = null;
+        mat.metalnessMap = null;
+        mat.aoMap = null;
+
+        mat.needsUpdate = true;
+      });
+    }
+  });
+}
+
+function showTextureMenu(type) {
+  textureMenu.innerHTML = '';
+
+  const textures = TEXTURE_LIBRARY[type];
+  if (!textures) return;
+
+  textures.forEach(path => {
+    const div = document.createElement('div');
+    div.className = 'texture';
+    div.style.backgroundImage = `url(${path})`;
+    div.onclick = () => gantiTexture(path);
+    textureMenu.appendChild(div);
+  });
+
+  textureMenu.classList.remove('hidden');
+}
+
+window.gantiTexture = gantiTexture;
 
